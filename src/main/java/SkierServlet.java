@@ -3,6 +3,7 @@ import com.rabbitmq.client.*;
 import consumer.resortmicroservice.model.SkiDayVerticalMessage;
 import consumer.resortmicroservice.model.TotalVerticalMessage;
 import model.*;
+import util.cache.ServerCache;
 import util.rabbitmq.BlockingChannelPool;
 import util.rabbitmq.ChannelPool;
 import util.rabbitmq.RPCClient;
@@ -39,6 +40,13 @@ public class SkierServlet extends HttpServlet {
             res.setStatus(HttpServletResponse.SC_NOT_FOUND);
             return;
         } else {
+            ServerCache cache = ServerCache.getInstance();
+            String cachedData = cache.request(urlPath);
+            if (cachedData != null) {
+                res.setStatus(HttpServletResponse.SC_OK);
+                res.getWriter().write(cachedData);
+                return;
+            }
             res.setStatus(HttpServletResponse.SC_OK);
             Channel channel = null;
             ChannelPool channelPool = new BlockingChannelPool();
@@ -63,7 +71,7 @@ public class SkierServlet extends HttpServlet {
                     String messageToQueue = gson.toJson(uniqueSkierMessage);
                     String result = getRequestRpc.call(messageToQueue);
                     res.setStatus(HttpServletResponse.SC_OK);
-
+                    cache.put(urlPath, result);
                     res.getWriter().write(result);
                     return;
                 } catch (IOException | InterruptedException e) {
@@ -98,7 +106,7 @@ public class SkierServlet extends HttpServlet {
                     String messageToQueue = gson.toJson(totalVerticalMessage);
                     String result = getRequestRpc.call(messageToQueue);
                     res.setStatus(HttpServletResponse.SC_OK);
-
+                    cache.put(urlPath, result);
                     res.getWriter().write(result);
                     channelPool.add(channel);
                     return;

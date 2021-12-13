@@ -2,6 +2,7 @@ import com.google.gson.Gson;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import consumer.resortmicroservice.model.UniqueSkierMessage;
+import util.cache.ServerCache;
 import util.rabbitmq.BlockingChannelPool;
 import util.rabbitmq.ChannelPool;
 import util.rabbitmq.RPCClient;
@@ -36,6 +37,13 @@ public class ResortServlet extends HttpServlet {
             res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return;
         } else {
+            ServerCache cache = ServerCache.getInstance();
+            String cachedData = cache.request(urlPath);
+            if (cachedData != null) {
+                res.setStatus(HttpServletResponse.SC_OK);
+                res.getWriter().write(cachedData);
+                return;
+            }
             try {
                 ChannelPool channelPool = new BlockingChannelPool();
                 channelPool.init();
@@ -58,6 +66,7 @@ public class ResortServlet extends HttpServlet {
 //                    "numSkiers": 123
 //                }
                 res.getWriter().write(result);
+                cache.put(urlPath, result);
                 channelPool.add(channel);
                 return;
             } catch (IOException | InterruptedException e) {
